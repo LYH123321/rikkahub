@@ -107,3 +107,18 @@ jobs:
         with:
           name: rikkahub-debug
           path: app/build/outputs/apk/**/*.apk
+
+      - name: Publish Release (public download)
+        if: success()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 删除旧的 debug-latest release, 保证 tag 唯一可覆盖
+          gh release delete debug-latest --yes 2>/dev/null || true
+          # 创建公开 Release 并上传所有 APK, 下载链接无需登录
+          gh release create debug-latest \
+            --title "RikkaHub Debug Build" \
+            --notes "调试签名 APK，自动构建。点击下方资产即可直接下载，无需登录。" \
+            --target master \
+            $(find app/build/outputs/apk -name "*.apk")
+          echo "Release: https://github.com/LYH123321/rikkahub/releases/tag/debug-latest"
