@@ -113,7 +113,7 @@ internal fun applyInjections(
         ?.joinToString("\n") { it.content } ?: ""
 
     if (beforeContent.isNotEmpty() || afterContent.isNotEmpty()) {
-        val systemStartIndex = result.indexOfFirst { it.role == MessageRole.SYSTEM }
+        var systemStartIndex = result.indexOfFirst { it.role == MessageRole.SYSTEM }
 
         if (systemStartIndex >= 0) {
             // 找到 system 消息区域末尾(连续的 SYSTEM 消息)
