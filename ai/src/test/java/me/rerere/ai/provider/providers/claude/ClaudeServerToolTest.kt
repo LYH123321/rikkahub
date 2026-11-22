@@ -301,7 +301,7 @@ class ClaudeServerToolTest {
         assertEquals("done", result.message.parts.filterIsInstance<UIMessagePart.Text>().last().text)
         assertEquals(ServerToolStatus.COMPLETED, result.message.parts
             .filterIsInstance<UIMessagePart.ServerTool>().single().status)
-        assertEquals(TokenUsage(15, 5, 0, 20), result.usage)
+        assertEquals(TokenUsage(promptTokens = 15, completionTokens = 5, cachedTokens = 0, totalTokens = 20), result.usage)
 
         val finalToolMetadata = result.message.parts
             .filterIsInstance<UIMessagePart.ServerTool>()
@@ -339,7 +339,7 @@ class ClaudeServerToolTest {
                     ).toMetadata(),
                 ),
                 StreamChunk.ServerToolInputEnd("srvtoolu_1"),
-                StreamChunk.Usage(TokenUsage(10, 2, 0, 12)),
+                StreamChunk.Usage(TokenUsage(promptTokens = 10, completionTokens = 2, cachedTokens = 0, totalTokens = 12)),
                 StreamChunk.Finish("pause_turn", "msg_1", "claude-test"),
             ),
             flowOf(
@@ -356,7 +356,7 @@ class ClaudeServerToolTest {
                 StreamChunk.TextStart("text_1"),
                 StreamChunk.TextDelta("text_1", "done"),
                 StreamChunk.TextEnd("text_1"),
-                StreamChunk.Usage(TokenUsage(5, 3, 0, 8)),
+                StreamChunk.Usage(TokenUsage(promptTokens = 5, completionTokens = 3, cachedTokens = 0, totalTokens = 8)),
                 StreamChunk.Finish("end_turn", "msg_2", "claude-test"),
             ),
         )
@@ -373,7 +373,7 @@ class ClaudeServerToolTest {
             chunks.filterIsInstance<StreamChunk.Finish>().map { it.finishReason },
         )
         assertEquals(
-            TokenUsage(15, 5, 0, 20),
+            TokenUsage(promptTokens = 15, completionTokens = 5, cachedTokens = 0, totalTokens = 20),
             chunks.filterIsInstance<StreamChunk.Usage>().last().usage,
         )
 
