@@ -63,6 +63,8 @@ class UsageRecorder(
             promptTokens = usage.promptTokens,
             completionTokens = usage.completionTokens,
             cachedTokens = usage.cachedTokens,
+            cacheReadTokens = usage.cacheReadTokens,
+            cacheWriteTokens = usage.cacheWriteTokens,
         )
         // Room 的 suspend 写入自己会切到后台线程
         scope.launch {

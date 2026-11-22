@@ -59,17 +59,11 @@ class WorkspaceReminderTransformer(
         return messages.withPrompt(prompt)
     }
 
-    // 追加到第一条 system 消息; 若不存在则插入一条
+    // 在 system 消息区域末尾插入独立 system 消息, 不修改已有前缀内容, 保持前缀字节稳定以命中缓存
     private fun List<UIMessage>.withPrompt(prompt: String): List<UIMessage> {
-        val systemIndex = indexOfFirst { it.role == MessageRole.SYSTEM }
-        return if (systemIndex >= 0) {
-            toMutableList().apply {
-                this[systemIndex] = this[systemIndex]
-                    .appendText("\n\n$prompt")
-                    .copy(isSynthetic = true)
-            }
-        } else {
-            listOf(UIMessage.system(prompt).copy(isSynthetic = true)) + this
+        val systemEndIndex = indexOfFirst { it.role != MessageRole.SYSTEM }.let { if (it >= 0) it else size }
+        return toMutableList().apply {
+            add(systemEndIndex, UIMessage.system(prompt).copy(isSynthetic = true))
         }
     }
 

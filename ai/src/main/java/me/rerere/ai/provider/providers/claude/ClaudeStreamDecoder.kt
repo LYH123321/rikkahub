@@ -191,7 +191,9 @@ internal class ClaudeStreamDecoder : StreamChunkDecoder {
             promptTokens = promptTokens,
             completionTokens = completionTokens,
             totalTokens = promptTokens + completionTokens,
-            cachedTokens = cachedInputTokens,
+            cachedTokens = cachedInputTokens + cachedCreationTokens,
+            cacheReadTokens = cachedInputTokens,
+            cacheWriteTokens = cachedCreationTokens,
         )
     }
 

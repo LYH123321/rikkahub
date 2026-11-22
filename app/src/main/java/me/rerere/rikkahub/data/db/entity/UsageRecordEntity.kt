@@ -40,4 +40,8 @@ data class UsageRecordEntity(
     val completionTokens: Int,
     @ColumnInfo("cached_tokens")
     val cachedTokens: Int,
+    @ColumnInfo("cache_read_tokens")
+    val cacheReadTokens: Int,
+    @ColumnInfo("cache_write_tokens")
+    val cacheWriteTokens: Int,
 )

@@ -7,6 +7,8 @@ data class TokenUsage(
     val promptTokens: Int = 0,
     val completionTokens: Int = 0,
     val cachedTokens: Int = 0,
+    val cacheReadTokens: Int = 0,
+    val cacheWriteTokens: Int = 0,
     val totalTokens: Int = 0,
 )
 
@@ -25,17 +27,32 @@ fun TokenUsage?.merge(other: TokenUsage): TokenUsage {
     } else {
         this?.completionTokens ?: 0
     }
-    val totalTokens = promptTokens + completionTokens
-    val cachedTokens = if (other.cachedTokens > 0) {
+    val cacheReadTokens = if (other.cacheReadTokens > 0) {
+        other.cacheReadTokens
+    } else {
+        this?.cacheReadTokens ?: 0
+    }
+    val cacheWriteTokens = if (other.cacheWriteTokens > 0) {
+        other.cacheWriteTokens
+    } else {
+        this?.cacheWriteTokens ?: 0
+    }
+    // 向后兼容: 旧快照只设了 cachedTokens 没拆读写时, 把 cachedTokens 当作读缓存
+    val resolvedCached = if (cacheReadTokens > 0 || cacheWriteTokens > 0) {
+        cacheReadTokens + cacheWriteTokens
+    } else if (other.cachedTokens > 0) {
         other.cachedTokens
     } else {
         this?.cachedTokens ?: 0
     }
+    val totalTokens = promptTokens + completionTokens
     return TokenUsage(
         promptTokens = promptTokens,
         completionTokens = completionTokens,
-        totalTokens = totalTokens,
-        cachedTokens = cachedTokens
+        cachedTokens = resolvedCached,
+        cacheReadTokens = if (cacheReadTokens > 0 || cacheWriteTokens > 0) cacheReadTokens else resolvedCached,
+        cacheWriteTokens = cacheWriteTokens,
+        totalTokens = totalTokens
     )
 }
 
@@ -49,6 +66,8 @@ fun TokenUsage?.sum(other: TokenUsage?): TokenUsage? {
         promptTokens = promptTokens + other.promptTokens,
         completionTokens = completionTokens + other.completionTokens,
         cachedTokens = cachedTokens + other.cachedTokens,
+        cacheReadTokens = cacheReadTokens + other.cacheReadTokens,
+        cacheWriteTokens = cacheWriteTokens + other.cacheWriteTokens,
         totalTokens = totalTokens + other.totalTokens,
     )
 }

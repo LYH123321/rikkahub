@@ -105,58 +105,44 @@ internal fun applyInjections(
 ): List<UIMessage> {
     val result = messages.toMutableList()
 
-    // 找到系统消息的索引（通常是第一条）
-    val systemIndex = result.indexOfFirst { it.role == MessageRole.SYSTEM }
-
     // 处理 BEFORE_SYSTEM_PROMPT 和 AFTER_SYSTEM_PROMPT
-    if (systemIndex >= 0) {
-        val beforeContent = byPosition[InjectionPosition.BEFORE_SYSTEM_PROMPT]
-            ?.joinToString("\n") { it.content } ?: ""
-        val afterContent = byPosition[InjectionPosition.AFTER_SYSTEM_PROMPT]
-            ?.joinToString("\n") { it.content } ?: ""
+    // append-only 策略: 不修改已有 system 前缀内容, 改为插入独立 system 消息,
+    // 保持前缀字节稳定以命中 prefix cache
+    val beforeContent = byPosition[InjectionPosition.BEFORE_SYSTEM_PROMPT]
+        ?.joinToString("\n") { it.content } ?: ""
+    val afterContent = byPosition[InjectionPosition.AFTER_SYSTEM_PROMPT]
+        ?.joinToString("\n") { it.content } ?: ""
 
-        if (beforeContent.isNotEmpty() || afterContent.isNotEmpty()) {
-            val systemMessage = result[systemIndex]
-            val originalText = systemMessage.parts
-                .filterIsInstance<UIMessagePart.Text>()
-                .joinToString("") { it.text }
+    if (beforeContent.isNotEmpty() || afterContent.isNotEmpty()) {
+        val systemStartIndex = result.indexOfFirst { it.role == MessageRole.SYSTEM }
 
-            val newText = buildString {
-                if (beforeContent.isNotEmpty()) {
-                    append(beforeContent)
-                    appendLine()
-                }
-                append(originalText)
-                if (afterContent.isNotEmpty()) {
-                    appendLine()
-                    append(afterContent)
-                }
+        if (systemStartIndex >= 0) {
+            // 找到 system 消息区域末尾(连续的 SYSTEM 消息)
+            var systemEndIndex = systemStartIndex
+            while (systemEndIndex < result.size && result[systemEndIndex].role == MessageRole.SYSTEM) {
+                systemEndIndex++
             }
 
-            result[systemIndex] = systemMessage.copy(
-                parts = listOf(UIMessagePart.Text(newText)),
-                isSynthetic = true,
-            )
-        }
-    } else {
-        // 没有系统消息时，创建一个新的系统消息
-        val beforeContent = byPosition[InjectionPosition.BEFORE_SYSTEM_PROMPT]
-            ?.joinToString("\n") { it.content } ?: ""
-        val afterContent = byPosition[InjectionPosition.AFTER_SYSTEM_PROMPT]
-            ?.joinToString("\n") { it.content } ?: ""
-
-        val combinedContent = buildString {
+            // BEFORE_SYSTEM_PROMPT: 插在 system 区域之前, 不修改已有前缀
             if (beforeContent.isNotEmpty()) {
-                append(beforeContent)
+                result.add(systemStartIndex, UIMessage.system(beforeContent).copy(isSynthetic = true))
+                systemStartIndex++
+                systemEndIndex++
+            }
+            // AFTER_SYSTEM_PROMPT: 插在 system 区域之后, 不修改已有前缀
+            if (afterContent.isNotEmpty()) {
+                result.add(systemEndIndex, UIMessage.system(afterContent).copy(isSynthetic = true))
+            }
+        } else {
+            // 没有 system 消息: 全部插在最前面
+            val inserts = mutableListOf<UIMessage>()
+            if (beforeContent.isNotEmpty()) {
+                inserts.add(UIMessage.system(beforeContent).copy(isSynthetic = true))
             }
             if (afterContent.isNotEmpty()) {
-                if (isNotEmpty()) appendLine()
-                append(afterContent)
+                inserts.add(UIMessage.system(afterContent).copy(isSynthetic = true))
             }
-        }
-
-        if (combinedContent.isNotEmpty()) {
-            result.add(0, UIMessage.system(combinedContent).copy(isSynthetic = true))
+            result.addAll(0, inserts)
         }
     }
 

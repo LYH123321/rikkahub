@@ -166,6 +166,8 @@ internal class GoogleStreamDecoder(
             completionTokens = candidateTokens + thoughtTokens,
             totalTokens = totalTokens,
             cachedTokens = cachedTokens,
+            cacheReadTokens = cachedTokens,
+            cacheWriteTokens = 0,
         )
     }
 

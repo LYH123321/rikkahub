@@ -231,7 +231,8 @@ class ChatRequestFactory(
     ): StepRequest {
         val assistant = turn.assistant
         val requestMessages = buildList {
-            val system = buildString {
+            // 静态前缀: 系统提示词 + 工具prompt, 字节固定不动, 每轮全命中 prefix cache
+            val staticPrefix = buildString {
                 val effectiveSystemPrompt =
                     if (assistant.allowConversationSystemPrompt && !turn.conversationSystemPrompt.isNullOrBlank()) {
                         turn.conversationSystemPrompt
@@ -241,21 +242,18 @@ class ChatRequestFactory(
                 if (effectiveSystemPrompt.isNotBlank()) {
                     append(effectiveSystemPrompt)
                 }
-
-                // 记忆
-                if (assistant.enableMemory) {
-                    appendLine()
-                    append(buildMemoryPrompt(turn.memories))
-                }
-                // 工具prompt
                 turn.tools.forEach { tool ->
                     appendLine()
                     append(tool.systemPrompt(turn.model, messages))
                 }
             }
-            if (system.isNotBlank()) {
-                add(UIMessage.system(prompt = system).copy(isSynthetic = true))
-            }
+            // 动态追加: 记忆等易变内容作为独立 system 消息, 不污染前缀
+            val memoryPrompt = if (assistant.enableMemory) buildMemoryPrompt(turn.memories) else ""
+
+            staticPrefix.takeIf { it.isNotBlank() }
+                ?.let { add(UIMessage.system(prompt = it).copy(isSynthetic = true)) }
+            memoryPrompt.takeIf { it.isNotBlank() }
+                ?.let { add(UIMessage.system(prompt = it).copy(isSynthetic = true)) }
             addAll(messages.limitContext(assistant.contextMessageLimit).withContinuationHint())
         }.transforms(
             transformers = inputTransformers,

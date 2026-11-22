@@ -294,7 +294,7 @@ class InteractionsApiTest {
         assertEquals("The GCD is 21.", (message.parts[1] as UIMessagePart.Text).text)
         assertEquals(2, message.parts.size)
         assertEquals(listOf(UIMessageAnnotation.UrlCitation("Example", "https://example.com")), message.annotations)
-        assertEquals(TokenUsage(promptTokens = 11, completionTokens = 335, totalTokens = 346, cachedTokens = 2), message.usage)
+        assertEquals(TokenUsage(promptTokens = 11, completionTokens = 335, totalTokens = 346, cachedTokens = 2, cacheReadTokens = 2, cacheWriteTokens = 0), message.usage)
         assertEquals(StreamChunk.Finish("completed", "v1_abc", "gemini-3.8-flash"), chunks.last())
     }
 

@@ -6,6 +6,7 @@ import android.os.Build
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
+import me.rerere.ai.core.MessageRole
 import me.rerere.ai.provider.Model
 import me.rerere.ai.ui.UIMessage
 import me.rerere.ai.ui.UIMessagePart
@@ -123,17 +124,23 @@ object PlaceholderTransformer : InputMessageTransformer, KoinComponent {
     ): List<UIMessage> {
         val settingsStore = get<SettingsStore>()
         return messages.map {
-            it.copy(
-                parts = it.parts.map { part ->
-                    if (part is UIMessagePart.Text) {
-                        part.copy(
-                            text = replacePlaceholders(text = part.text, ctx = ctx, settingsStore = settingsStore)
-                        )
-                    } else {
-                        part
+            // append-only 缓存策略: system 前缀不替换占位符, 保持字节稳定以命中 prefix cache
+            // 动态占位符(日期/电量等)请放在 user 消息或独立 system 消息中
+            if (it.role == MessageRole.SYSTEM) {
+                it
+            } else {
+                it.copy(
+                    parts = it.parts.map { part ->
+                        if (part is UIMessagePart.Text) {
+                            part.copy(
+                                text = replacePlaceholders(text = part.text, ctx = ctx, settingsStore = settingsStore)
+                            )
+                        } else {
+                            part
+                        }
                     }
-                }
-            )
+                )
+            }
         }
     }
 
