@@ -46,7 +46,7 @@ object TavernCardParser {
             depthPromptDepth = ext.obj("depth_prompt")?.int("depth") ?: 4,
             depthPromptRole = ext.obj("depth_prompt")?.str("role")?.ifBlank { "system" } ?: "system",
             embeddedBook = parseBook(data["character_book"]),
-            regexScripts = parseScripts(ext.arr("regex_scripts")),
+            regexScripts = parseScripts(ext["regex_scripts"]),
         ).takeIf { it.name.isNotBlank() }
     }.getOrNull()
 
@@ -63,8 +63,8 @@ object TavernCardParser {
             TavernBookEntry(
                 uid = e.int("uid") ?: e.int("id") ?: 0,
                 comment = e.str("comment").ifBlank { e.str("name") },
-                keys = e.arr("keys").ifBlank { e.arr("key") },
-                secondaryKeys = e.arr("secondary_keys").ifBlank { e.arr("keysecondary") },
+                keys = e.arr("keys").ifEmpty { e.arr("key") },
+                secondaryKeys = e.arr("secondary_keys").ifEmpty { e.arr("keysecondary") },
                 selective = e.bool("selective") ?: false,
                 selectiveLogic = e.int("selectiveLogic") ?: ext.int("selectiveLogic") ?: 0,
                 content = e.str("content"),
@@ -131,6 +131,7 @@ private fun JsonObject.bool(key: String): Boolean? =
 private fun JsonObject.obj(key: String): JsonObject? =
     this[key] as? JsonObject
 
+
 /** 字符串数组：容忍单个字符串、数字数组等畸形输入 */
 private fun JsonObject.arr(key: String): List<String> = when (val e = this[key]) {
     is JsonArray -> e.mapNotNull { el ->
@@ -142,5 +143,3 @@ private fun JsonObject.arr(key: String): List<String> = when (val e = this[key])
     is JsonPrimitive -> listOfNotNull(e.contentOrNull?.takeIf { it.isNotBlank() })
     else -> emptyList()
 }
-
-private fun List<String>.ifBlank(): List<String> = if (isEmpty()) emptyList() else this

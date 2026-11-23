@@ -217,7 +217,7 @@ private fun CacheTableCard(models: List<ModelUsageItem>, modifier: Modifier = Mo
 }
 
 @Composable
-private fun CacheCell(text: String, weight: Float, header: Boolean) {
+private fun RowScope.CacheCell(text: String, weight: Float, header: Boolean) {
     Text(
         text = text,
         style = if (header) MaterialTheme.typography.labelMedium else MaterialTheme.typography.bodySmall,
