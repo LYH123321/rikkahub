@@ -13,7 +13,9 @@ interface UsageRecordDAO {
     @Query(
         "SELECT COALESCE(SUM(prompt_tokens), 0) AS promptTokens, " +
             "COALESCE(SUM(completion_tokens), 0) AS completionTokens, " +
-            "COALESCE(SUM(cached_tokens), 0) AS cachedTokens " +
+            "COALESCE(SUM(cached_tokens), 0) AS cachedTokens, " +
+            "COALESCE(SUM(cache_read_tokens), 0) AS cacheReadTokens, " +
+            "COALESCE(SUM(cache_write_tokens), 0) AS cacheWriteTokens " +
             "FROM usage_record WHERE created_at >= :since"
     )
     suspend fun getTotals(since: Long = 0): UsageTotals
@@ -38,7 +40,9 @@ interface UsageRecordDAO {
     @Query(
         "SELECT model_id AS modelId, MAX(model_name) AS modelName, " +
             "SUM(prompt_tokens) AS promptTokens, SUM(completion_tokens) AS completionTokens, " +
-            "SUM(cached_tokens) AS cachedTokens " +
+            "SUM(cached_tokens) AS cachedTokens, " +
+            "SUM(cache_read_tokens) AS cacheReadTokens, " +
+            "SUM(cache_write_tokens) AS cacheWriteTokens " +
             "FROM usage_record WHERE created_at >= :since " +
             "GROUP BY COALESCE(model_id, model_name) " +
             "ORDER BY SUM(prompt_tokens + completion_tokens) DESC"
@@ -58,6 +62,8 @@ data class UsageTotals(
     val promptTokens: Long = 0,
     val completionTokens: Long = 0,
     val cachedTokens: Long = 0,
+    val cacheReadTokens: Long = 0,
+    val cacheWriteTokens: Long = 0,
 )
 
 data class DayCount(
@@ -78,6 +84,8 @@ data class ModelUsage(
     val promptTokens: Long,
     val completionTokens: Long,
     val cachedTokens: Long,
+    val cacheReadTokens: Long = 0,
+    val cacheWriteTokens: Long = 0,
 )
 
 data class SourceUsage(

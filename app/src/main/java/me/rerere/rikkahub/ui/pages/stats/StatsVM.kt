@@ -55,6 +55,10 @@ data class ModelUsageItem(
     // 模型已被删除且没有名称快照时为空
     val name: String?,
     val totalTokens: Long,
+    // DSH 缓存统计：命中率 = cacheRead / prompt
+    val promptTokens: Long = 0,
+    val cacheReadTokens: Long = 0,
+    val cacheWriteTokens: Long = 0,
 )
 
 data class UsageStats(
@@ -148,6 +152,9 @@ class StatsVM(
                 ModelUsageItem(
                     name = model?.displayName?.ifBlank { null } ?: model?.modelId ?: usage.modelName,
                     totalTokens = usage.promptTokens + usage.completionTokens,
+                    promptTokens = usage.promptTokens,
+                    cacheReadTokens = usage.cacheReadTokens,
+                    cacheWriteTokens = usage.cacheWriteTokens,
                 )
             }
             _usage.value = UsageStats(

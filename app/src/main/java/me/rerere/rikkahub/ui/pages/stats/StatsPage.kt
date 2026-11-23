@@ -157,6 +157,12 @@ fun StatsPage(vm: StatsVM = koinViewModel()) {
                             )
                         }
                         item {
+                            CacheTableCard(
+                                models = usage.models,
+                                modifier = Modifier.padding(horizontal = 8.dp),
+                            )
+                        }
+                        item {
                             RankingCard(
                                 title = stringResource(R.string.stats_page_by_source),
                                 items = usage.sources.map { source -> sourceLabel(source) to source.totalTokens },
@@ -168,6 +174,60 @@ fun StatsPage(vm: StatsVM = koinViewModel()) {
             }
         }
     }
+}
+
+/**
+ * DSH 缓存命中率表：按模型展示提示 tokens、缓存读/写与命中率。
+ * 命中率 = cacheRead / promptTokens；DSH append-only 组装下应达 95%+。
+ */
+@Composable
+private fun CacheTableCard(models: List<ModelUsageItem>, modifier: Modifier = Modifier) {
+    val rows = models.filter { it.cacheReadTokens > 0 || it.cacheWriteTokens > 0 }
+    if (rows.isEmpty()) return
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CustomColors.cardColorsOnSurfaceContainer,
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(stringResource(R.string.stats_page_cache_table_title), style = MaterialTheme.typography.titleMedium)
+            Row(Modifier.fillMaxWidth()) {
+                CacheCell(stringResource(R.string.stats_page_cache_table_model), 2f, true)
+                CacheCell(stringResource(R.string.stats_page_cache_table_prompt), 1f, true)
+                CacheCell(stringResource(R.string.stats_page_cache_table_read), 1f, true)
+                CacheCell(stringResource(R.string.stats_page_cache_table_write), 1f, true)
+                CacheCell(stringResource(R.string.stats_page_cache_table_hit), 1f, true)
+            }
+            rows.forEach { model ->
+                val hit = if (model.promptTokens > 0) {
+                    model.cacheReadTokens * 100.0 / model.promptTokens
+                } else 0.0
+                Row(Modifier.fillMaxWidth()) {
+                    CacheCell(model.name ?: stringResource(R.string.stats_page_unknown_model), 2f, false)
+                    CacheCell(formatTokens(model.promptTokens), 1f, false)
+                    CacheCell(formatTokens(model.cacheReadTokens), 1f, false)
+                    CacheCell(formatTokens(model.cacheWriteTokens), 1f, false)
+                    CacheCell("%.1f%%".format(hit), 1f, false)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CacheCell(text: String, weight: Float, header: Boolean) {
+    Text(
+        text = text,
+        style = if (header) MaterialTheme.typography.labelMedium else MaterialTheme.typography.bodySmall,
+        color = if (header) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier
+            .weight(weight)
+            .padding(end = 8.dp),
+    )
 }
 
 @Composable
