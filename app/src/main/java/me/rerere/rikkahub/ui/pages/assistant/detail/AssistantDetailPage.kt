@@ -122,6 +122,17 @@ fun AssistantDetailPage(id: String) {
                 )
             }
 
+            // 酒馆设置（角色卡/预设/正则）
+            if (assistant.tavernData != null || assistant.tavernPreset != null) {
+                item {
+                    TavernSettingsCard(
+                        assistant = assistant,
+                        modifier = Modifier.padding(horizontal = 8.dp),
+                        onAssistantUpdate = { updated -> vm.update(updated) },
+                    )
+                }
+            }
+
             item {
                 val containerColor = MaterialTheme.colorScheme.primaryContainer
                 val contentColor = MaterialTheme.colorScheme.onPrimaryContainer

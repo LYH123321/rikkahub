@@ -21,6 +21,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -158,6 +161,12 @@ fun StatsPage(vm: StatsVM = koinViewModel()) {
                             )
                         }
                         item {
+                            CacheDashboardCard(
+                                usage = usage,
+                                modifier = Modifier.padding(horizontal = 8.dp),
+                            )
+                        }
+                        item {
                             CacheTableCard(
                                 models = usage.models,
                                 modifier = Modifier.padding(horizontal = 8.dp),
@@ -170,6 +179,88 @@ fun StatsPage(vm: StatsVM = koinViewModel()) {
                                 modifier = Modifier.padding(horizontal = 8.dp),
                             )
                         }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * DSH 缓存仪表盘：大号总命中率 + 输入/缓存 token 总量 + 上次请求命中 + 最近请求条形。
+ * 命中率 = cacheRead / promptTokens；DSH append-only 组装下应达 95%+。
+ */
+@Composable
+private fun CacheDashboardCard(usage: UsageStats, modifier: Modifier = Modifier) {
+    val totals = usage.totals
+    if (totals.cacheReadTokens <= 0 && totals.cacheWriteTokens <= 0) return
+    val hit = if (totals.promptTokens > 0) totals.cacheReadTokens * 100.0 / totals.promptTokens else 0.0
+    val last = usage.recentCache.firstOrNull()
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CustomColors.cardColorsOnSurfaceContainer,
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = "%.1f%%".format(hit),
+                style = MaterialTheme.typography.displaySmall,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                text = stringResource(
+                    R.string.stats_page_cache_from_total,
+                    formatTokens(totals.cacheReadTokens),
+                    formatTokens(totals.promptTokens),
+                ),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (last != null) {
+                val lastHit = if (last.promptTokens > 0) last.cachedTokens * 100.0 / last.promptTokens else 0.0
+                Text(
+                    text = stringResource(R.string.stats_page_cache_last_request, "%.1f%%".format(lastHit)),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+            usage.recentCache.take(5).forEachIndexed { index, record ->
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            text = (record.modelName ?: stringResource(R.string.stats_page_unknown_model)),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text(
+                            text = stringResource(R.string.stats_page_cache_cached_label, formatTokens(record.cachedTokens.toLong())),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    val ratio = if (record.promptTokens > 0) {
+                        (record.cachedTokens.toFloat() / record.promptTokens).coerceIn(0f, 1f)
+                    } else 0f
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(3.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(ratio)
+                                .height(6.dp)
+                                .clip(RoundedCornerShape(3.dp))
+                                .background(MaterialTheme.colorScheme.primary),
+                        )
                     }
                 }
             }

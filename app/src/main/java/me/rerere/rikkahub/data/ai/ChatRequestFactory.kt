@@ -231,48 +231,69 @@ class ChatRequestFactory(
     ): StepRequest {
         val assistant = turn.assistant
         val card = assistant.tavernData
+        val preset = turn.settings.tavernPreset
         val userName = turn.settings.displaySetting.userNickname.ifBlank { "User" }
+        val regexScripts = TavernAssembler.allRegexScripts(card, preset)
         val requestMessages = buildList {
-            // 静态前缀: 系统提示词 + 角色卡静态字段 + 工具prompt, 字节固定不动, 每轮全命中 prefix cache
-            // 卡片在会话内不变, 因此角色卡字段进前缀不影响缓存
-            val staticPrefix = buildString {
-                val effectiveSystemPrompt =
-                    if (assistant.allowConversationSystemPrompt && !turn.conversationSystemPrompt.isNullOrBlank()) {
-                        turn.conversationSystemPrompt
-                    } else if (card != null) {
-                        TavernAssembler.mainPrompt(card, userName)
-                    } else {
-                        assistant.systemPrompt
+            if (preset != null) {
+                // 预设模式: chatHistory 标记前的启用 prompts 按序进静态前缀（预设文本固定=缓存安全）
+                addAll(TavernAssembler.presetPrefix(preset, card, userName))
+                // 工具 prompt 作为独立静态 system 追加在前缀区末尾
+                val toolPrompts = turn.tools.joinToString("\n\n") { it.systemPrompt(turn.model, messages) }
+                if (toolPrompts.isNotBlank()) {
+                    add(UIMessage.system(prompt = toolPrompts).copy(isSynthetic = true))
+                }
+            } else {
+                // 静态前缀: 系统提示词 + 角色卡静态字段 + 工具prompt, 字节固定不动, 每轮全命中 prefix cache
+                val staticPrefix = buildString {
+                    val effectiveSystemPrompt =
+                        if (assistant.allowConversationSystemPrompt && !turn.conversationSystemPrompt.isNullOrBlank()) {
+                            turn.conversationSystemPrompt
+                        } else if (card != null) {
+                            TavernAssembler.mainPrompt(card, userName)
+                        } else {
+                            assistant.systemPrompt
+                        }
+                    if (effectiveSystemPrompt.isNotBlank()) {
+                        append(effectiveSystemPrompt)
                     }
-                if (effectiveSystemPrompt.isNotBlank()) {
-                    append(effectiveSystemPrompt)
+                    if (card != null) {
+                        append(TavernAssembler.staticCardBlock(card, userName))
+                    }
+                    turn.tools.forEach { tool ->
+                        appendLine()
+                        append(tool.systemPrompt(turn.model, messages))
+                    }
                 }
-                if (card != null) {
-                    append(TavernAssembler.staticCardBlock(card, userName))
-                }
-                turn.tools.forEach { tool ->
-                    appendLine()
-                    append(tool.systemPrompt(turn.model, messages))
-                }
+                staticPrefix.takeIf { it.isNotBlank() }
+                    ?.let { add(UIMessage.system(prompt = it).copy(isSynthetic = true)) }
+            }
+            // 示例消息: 卡内不变, 紧跟前缀（同属不可变区, 缓存安全）; 预设模式下 dialogueExamples 标记已展开, 不重复加
+            if (card != null && preset == null) {
+                addAll(TavernAssembler.exampleMessages(card, userName))
             }
             // 动态追加: 记忆等易变内容作为独立 system 消息, 不污染前缀
             val memoryPrompt = if (assistant.enableMemory) buildMemoryPrompt(turn.memories) else ""
-
-            staticPrefix.takeIf { it.isNotBlank() }
-                ?.let { add(UIMessage.system(prompt = it).copy(isSynthetic = true)) }
-            // 示例消息: 卡内不变, 紧跟前缀（同属不可变区, 缓存安全）
-            if (card != null) {
-                addAll(TavernAssembler.exampleMessages(card, userName))
-            }
             memoryPrompt.takeIf { it.isNotBlank() }
                 ?.let { add(UIMessage.system(prompt = it).copy(isSynthetic = true)) }
-            addAll(messages.limitContext(assistant.contextMessageLimit).withContinuationHint())
-            // 酒馆动态尾部: 世界书命中 + PHI + 深度提示, 每轮追加在历史之后, 不碰前缀
-            if (card != null) {
-                val historyText = messages.limitContext(assistant.contextMessageLimit)
+            // 历史消息: 先应用预设/卡片正则（确定性替换, 旧消息不变, 缓存安全）
+            val history = TavernAssembler.applyRegexToMessages(
+                messages.limitContext(assistant.contextMessageLimit), regexScripts
+            )
+            addAll(history.withContinuationHint())
+            // 酒馆动态尾部: 预设尾部 prompts + 世界书命中 + PHI + 深度提示, 每轮追加在历史之后, 不碰前缀
+            if (card != null || preset != null) {
+                val historyText = history
                     .takeLast(4)
                     .joinToString("\n") { msg -> msg.parts.filterIsInstance<UIMessagePart.Text>().joinToString("\n") { it.text } }
-                addAll(TavernAssembler.dynamicTail(card, historyText, userName))
+                addAll(
+                    TavernAssembler.dynamicTail(
+                        card = card ?: TavernCard(name = assistant.name),
+                        historyText = historyText,
+                        userName = userName,
+                        presetParts = preset?.let { TavernAssembler.presetDynamicParts(it, card, userName) } ?: emptyList(),
+                    )
+                )
             }
         }.transforms(
             transformers = inputTransformers,

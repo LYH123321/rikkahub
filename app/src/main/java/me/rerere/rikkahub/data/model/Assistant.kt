@@ -53,6 +53,7 @@ data class Assistant(
     val timeReminderIntervalMinutes: Int = 60, // 时间提醒间隔（分钟，至少 1 分钟）
     val allowConversationSystemPrompt: Boolean = false, // 允许对话单独重写 system prompt
     val tavernData: TavernCard? = null, // 酒馆角色卡（导入后不变：静态字段进前缀，动态内容每轮追加）
+    val tavernPreset: TavernPreset? = null, // 酒馆预设（助手级绑定；全局激活预设存 Settings）
 )
 
 @Serializable

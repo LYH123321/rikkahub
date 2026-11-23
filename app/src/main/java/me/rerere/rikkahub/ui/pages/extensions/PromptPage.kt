@@ -85,8 +85,10 @@ import me.rerere.hugeicons.stroke.FileImport
 import me.rerere.hugeicons.stroke.MagicWand01
 import me.rerere.hugeicons.stroke.Share03
 import me.rerere.rikkahub.R
+import me.rerere.rikkahub.data.datastore.SettingsStore
 import me.rerere.rikkahub.data.export.LorebookSerializer
 import me.rerere.rikkahub.data.export.ModeInjectionSerializer
+import me.rerere.rikkahub.data.model.PresetSerializer
 import me.rerere.rikkahub.ui.hooks.rememberExporter
 import me.rerere.rikkahub.ui.hooks.rememberImporter
 import me.rerere.rikkahub.data.model.InjectionPosition
@@ -114,6 +116,7 @@ import me.rerere.ui.components.FormItem
 import me.rerere.ui.components.RikkaConfirmDialog
 import me.rerere.ui.components.Select
 import org.koin.androidx.compose.koinViewModel
+import org.koin.compose.koinInject
 import sh.calvin.reorderable.ReorderableColumn
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
@@ -594,6 +597,7 @@ private fun LorebookTab(
     var expanded by rememberSaveable { mutableStateOf(true) }
     val lazyListState = rememberLazyListState()
     val toaster = LocalToaster.current
+    val scope = rememberCoroutineScope()
     val currentLorebooks by rememberUpdatedState(lorebooks)
     val reorderableState = rememberReorderableLazyListState(lazyListState) { from, to ->
         val newList = lorebooks.toMutableList()
@@ -615,6 +619,19 @@ private fun LorebookTab(
         result.onSuccess { imported ->
             onUpdate(currentLorebooks + imported)
             toaster.show(importSuccessMsg)
+        }.onFailure { error ->
+            toaster.show(importFailedMsg.format(error.message))
+        }
+    }
+    // 酒馆预设导入：全局激活（ST 语义），写入 Settings.tavernPreset，DSH 组装时应用
+    val settingsStore = koinInject<SettingsStore>()
+    val presetImportedMsg = stringResource(R.string.prompt_page_preset_imported)
+    val presetImporter = rememberImporter(PresetSerializer) { result ->
+        result.onSuccess { preset ->
+            scope.launch {
+                settingsStore.update { it.copy(tavernPreset = preset) }
+            }
+            toaster.show(presetImportedMsg.format(preset.name, preset.orderedEnabled.size))
         }.onFailure { error ->
             toaster.show(importFailedMsg.format(error.message))
         }
@@ -663,8 +680,14 @@ private fun LorebookTab(
                 .align(Alignment.BottomCenter)
                 .offset(y = -ScreenOffset),
             leadingContent = {
-                IconButton(onClick = { importer.importFromFile() }) {
-                    Icon(HugeIcons.FileImport, null)
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    IconButton(onClick = { importer.importFromFile() }) {
+                        Icon(HugeIcons.FileImport, null)
+                    }
+                    // 酒馆预设导入（全局激活）
+                    IconButton(onClick = { presetImporter.importFromFile() }) {
+                        Icon(HugeIcons.MagicWand01, null)
+                    }
                 }
             },
         ) {

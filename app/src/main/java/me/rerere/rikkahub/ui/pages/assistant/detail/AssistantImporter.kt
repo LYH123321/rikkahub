@@ -249,6 +249,19 @@ private fun parseAssistantFromJson(
     return if (tavernCard != null) assistant.copy(tavernData = tavernCard) else assistant
 }
 
+/**
+ * 酒馆预设文件（prompts + prompt_order）→ 绑定到助手的预设。
+ * 助手导入路径：用户把预设当"角色配置"导入时直接挂到该助手。
+ */
+fun parseAssistantFromPreset(context: Context, json: JsonObject, fileName: String?): Assistant? {
+    val preset = me.rerere.rikkahub.data.model.TavernPresetParser.parse(json.toString(), fileName)
+        ?: return null
+    return Assistant(
+        name = preset.name.ifBlank { fileName?.removeSuffix(".json") ?: "Preset" },
+        tavernPreset = preset,
+    )
+}
+
 // endregion
 
 private suspend fun importAssistantFromUri(
@@ -282,7 +295,13 @@ private suspend fun importAssistantFromUri(
             }
         }
         val json = Json.parseToJsonElement(jsonString).jsonObject
-        val assistant = parseAssistantFromJson(context = context, json = json, background = backgroundStr)
+        // 预设文件（prompts + prompt_order）→ 绑定为助手的酒馆预设
+        val assistant = if (me.rerere.rikkahub.data.model.TavernPresetParser.isPreset(jsonString)) {
+            me.rerere.rikkahub.data.model.parseAssistantFromPreset(context, json, null)
+                ?: error(context.getString(R.string.assistant_importer_import_failed))
+        } else {
+            parseAssistantFromJson(context = context, json = json, background = backgroundStr)
+        }
         onImport(assistant)
     } catch (exception: Exception) {
         exception.printStackTrace()

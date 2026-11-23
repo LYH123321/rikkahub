@@ -92,6 +92,9 @@ object TavernCardParser {
         }
     }
 
+    /** 供 TavernPreset 等复用的正则脚本解析 */
+    fun parseScriptsPublic(element: JsonElement?): List<TavernRegexScript> = parseScripts(element)
+
     /** regex_scripts 数组 */
     private fun parseScripts(element: JsonElement?): List<TavernRegexScript> {
         val arr = element as? JsonArray ?: return emptyList()

@@ -49,6 +49,16 @@ interface UsageRecordDAO {
     )
     suspend fun getTotalsByModel(since: Long): List<ModelUsage>
 
+    /** 最近有缓存数据的请求（缓存仪表盘用，新的在前） */
+    @Query(
+        "SELECT model_name AS modelName, prompt_tokens AS promptTokens, " +
+            "cached_tokens AS cachedTokens, cache_read_tokens AS cacheReadTokens, " +
+            "cache_write_tokens AS cacheWriteTokens, created_at AS createdAt " +
+            "FROM usage_record WHERE cache_read_tokens > 0 OR cache_write_tokens > 0 " +
+            "ORDER BY created_at DESC LIMIT :limit"
+    )
+    suspend fun getRecentCacheRecords(limit: Int): List<CacheRecord>
+
     @Query(
         "SELECT source, SUM(prompt_tokens) AS promptTokens, SUM(completion_tokens) AS completionTokens, " +
             "SUM(cached_tokens) AS cachedTokens " +
@@ -93,4 +103,13 @@ data class SourceUsage(
     val promptTokens: Long,
     val completionTokens: Long,
     val cachedTokens: Long,
+)
+
+data class CacheRecord(
+    val modelName: String?,
+    val promptTokens: Int,
+    val cachedTokens: Int,
+    val cacheReadTokens: Int,
+    val cacheWriteTokens: Int,
+    val createdAt: Long,
 )

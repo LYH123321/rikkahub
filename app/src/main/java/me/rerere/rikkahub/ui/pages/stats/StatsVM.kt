@@ -11,6 +11,7 @@ import kotlinx.coroutines.launch
 import me.rerere.rikkahub.data.ai.UsageSource
 import me.rerere.rikkahub.data.datastore.SettingsStore
 import me.rerere.rikkahub.data.datastore.findModelById
+import me.rerere.rikkahub.data.db.dao.CacheRecord
 import me.rerere.rikkahub.data.db.dao.ConversationDAO
 import me.rerere.rikkahub.data.db.dao.MessageNodeDAO
 import me.rerere.rikkahub.data.db.dao.SourceUsage
@@ -68,6 +69,8 @@ data class UsageStats(
     val byMonth: Boolean,
     val models: List<ModelUsageItem>,
     val sources: List<SourceUsage>,
+    // 最近有缓存数据的请求（缓存仪表盘用，新的在前）
+    val recentCache: List<CacheRecord> = emptyList(),
 )
 
 class StatsVM(
@@ -164,6 +167,7 @@ class StatsVM(
                 byMonth = byMonth,
                 models = models,
                 sources = usageRecordDAO.getTotalsBySource(since),
+                recentCache = usageRecordDAO.getRecentCacheRecords(6),
             )
         }
     }
