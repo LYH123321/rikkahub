@@ -297,7 +297,7 @@ private suspend fun importAssistantFromUri(
         val json = Json.parseToJsonElement(jsonString).jsonObject
         // 预设文件（prompts + prompt_order）→ 绑定为助手的酒馆预设
         val assistant = if (me.rerere.rikkahub.data.model.TavernPresetParser.isPreset(jsonString)) {
-            me.rerere.rikkahub.data.model.parseAssistantFromPreset(context, json, null)
+            parseAssistantFromPreset(context, json, null)
                 ?: error(context.getString(R.string.assistant_importer_import_failed))
         } else {
             parseAssistantFromJson(context = context, json = json, background = backgroundStr)

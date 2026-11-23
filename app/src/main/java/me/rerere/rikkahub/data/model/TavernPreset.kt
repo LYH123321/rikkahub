@@ -108,7 +108,7 @@ object TavernPresetParser {
             name = name,
             prompts = prompts,
             regexScripts = regexScripts,
-        ).apply { enabledOrder = enabledOrder }
+        ).apply { this.enabledOrder = enabledOrder }
     }.getOrNull()
 }
 
