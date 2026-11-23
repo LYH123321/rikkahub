@@ -230,17 +230,25 @@ class ChatRequestFactory(
         processingStatus: MutableStateFlow<String?> = MutableStateFlow(null),
     ): StepRequest {
         val assistant = turn.assistant
+        val card = assistant.tavernData
+        val userName = turn.settings.displaySetting.userNickname.ifBlank { "User" }
         val requestMessages = buildList {
-            // 静态前缀: 系统提示词 + 工具prompt, 字节固定不动, 每轮全命中 prefix cache
+            // 静态前缀: 系统提示词 + 角色卡静态字段 + 工具prompt, 字节固定不动, 每轮全命中 prefix cache
+            // 卡片在会话内不变, 因此角色卡字段进前缀不影响缓存
             val staticPrefix = buildString {
                 val effectiveSystemPrompt =
                     if (assistant.allowConversationSystemPrompt && !turn.conversationSystemPrompt.isNullOrBlank()) {
                         turn.conversationSystemPrompt
+                    } else if (card != null) {
+                        TavernAssembler.mainPrompt(card, userName)
                     } else {
                         assistant.systemPrompt
                     }
                 if (effectiveSystemPrompt.isNotBlank()) {
                     append(effectiveSystemPrompt)
+                }
+                if (card != null) {
+                    append(TavernAssembler.staticCardBlock(card, userName))
                 }
                 turn.tools.forEach { tool ->
                     appendLine()
@@ -252,9 +260,20 @@ class ChatRequestFactory(
 
             staticPrefix.takeIf { it.isNotBlank() }
                 ?.let { add(UIMessage.system(prompt = it).copy(isSynthetic = true)) }
+            // 示例消息: 卡内不变, 紧跟前缀（同属不可变区, 缓存安全）
+            if (card != null) {
+                addAll(TavernAssembler.exampleMessages(card, userName))
+            }
             memoryPrompt.takeIf { it.isNotBlank() }
                 ?.let { add(UIMessage.system(prompt = it).copy(isSynthetic = true)) }
             addAll(messages.limitContext(assistant.contextMessageLimit).withContinuationHint())
+            // 酒馆动态尾部: 世界书命中 + PHI + 深度提示, 每轮追加在历史之后, 不碰前缀
+            if (card != null) {
+                val historyText = messages.limitContext(assistant.contextMessageLimit)
+                    .takeLast(4)
+                    .joinToString("\n") { msg -> msg.parts.filterIsInstance<UIMessagePart.Text>().joinToString("\n") { it.text } }
+                addAll(TavernAssembler.dynamicTail(card, historyText, userName))
+            }
         }.transforms(
             transformers = inputTransformers,
             context = context,

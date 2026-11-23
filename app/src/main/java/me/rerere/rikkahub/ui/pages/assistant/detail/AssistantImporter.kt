@@ -243,7 +243,10 @@ private fun parseAssistantFromJson(
     val spec = json["spec"]?.jsonPrimitive?.contentOrNull
         ?: error(context.getString(R.string.assistant_importer_missing_spec_field))
     val parser = TAVERN_PARSERS[spec] ?: error(context.getString(R.string.assistant_importer_unsupported_spec, spec))
-    return parser.parse(context = context, json = json, background = background)
+    val assistant = parser.parse(context = context, json = json, background = background)
+    // 结构化卡数据：DSH 组装用（世界书/示例消息/PHI/深度提示），解析失败不挡导入
+    val tavernCard = me.rerere.rikkahub.data.model.TavernCardParser.parse(json.toString())
+    return if (tavernCard != null) assistant.copy(tavernData = tavernCard) else assistant
 }
 
 // endregion
